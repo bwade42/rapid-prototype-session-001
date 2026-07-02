@@ -1,0 +1,23 @@
+{
+  "_comment": "Ambiguous / hidden-source ingredients. These map an ingredient to the allergen(s) it MIGHT contain. A match here is Medium risk (needs review), not a confirmed allergen.",
+  "aliases": {
+    "natural flavors": ["dairy", "soy", "egg"],
+    "natural flavor": ["dairy", "soy", "egg"],
+    "artificial flavors": ["dairy", "soy"],
+    "lecithin": ["soy", "egg"],
+    "starch": ["wheat"],
+    "modified food starch": ["wheat"],
+    "hydrolyzed protein": ["wheat", "soy"],
+    "hydrolyzed vegetable protein": ["wheat", "soy"],
+    "vegetable oil": ["soy", "peanut"],
+    "vegetable broth": ["soy", "wheat"],
+    "mono and diglycerides": ["soy"],
+    "caramel color": ["wheat"],
+    "spices": ["sesame"],
+    "seasoning": ["dairy", "soy", "wheat"],
+    "emulsifier": ["soy", "egg"],
+    "glaze": ["dairy", "egg"],
+    "protein isolate": ["soy", "dairy"],
+    "protein concentrate": ["soy", "dairy"]
+  }
+}

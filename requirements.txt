@@ -1,0 +1,13 @@
+# Core engine has no hard runtime deps — scan_text() works with the stdlib alone.
+
+# OCR (optional): needed for scan_label() on real images.
+pillow>=10.0
+pytesseract>=0.3.10   # also requires the Tesseract binary: `brew install tesseract`
+
+# API wrapper.
+fastapi>=0.110
+uvicorn[standard]>=0.29
+python-multipart>=0.0.9   # required by FastAPI for file uploads
+
+# Dev / tests.
+pytest>=8.0

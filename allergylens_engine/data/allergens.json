@@ -1,0 +1,11 @@
+{
+  "dairy": ["milk", "whey", "casein", "cream", "butter", "lactose", "ghee", "curds", "milk solids"],
+  "soy": ["soy", "soybean", "soybean oil", "soy lecithin", "edamame", "tofu", "miso"],
+  "wheat": ["wheat", "flour", "gluten", "enriched wheat flour", "semolina", "durum", "malt", "barley", "rye"],
+  "egg": ["egg", "eggs", "egg whites", "egg yolk", "albumin", "albumen", "mayonnaise"],
+  "peanut": ["peanut", "peanuts", "groundnut", "peanut oil", "arachis"],
+  "tree_nut": ["almond", "walnut", "cashew", "pecan", "hazelnut", "pistachio", "macadamia", "brazil nut", "pine nut"],
+  "sesame": ["sesame", "tahini", "sesame oil", "sesame seed"],
+  "fish": ["fish", "anchovy", "salmon", "tuna", "cod", "sardine", "tilapia", "fish oil"],
+  "shellfish": ["shrimp", "crab", "lobster", "prawn", "crawfish", "crayfish", "scallop", "clam", "mussel", "oyster"]
+}
