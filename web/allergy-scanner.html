@@ -110,15 +110,23 @@
       </sc-if>
 
       <sc-if value="{{ isCameraTab }}" hint-placeholder-val="{{ false }}">
-        <div style="height:260px; border-radius:12px; overflow:hidden; position:relative; background: repeating-linear-gradient(135deg, oklch(30% 0.01 240) 0px, oklch(30% 0.01 240) 14px, oklch(24% 0.01 240) 14px, oklch(24% 0.01 240) 28px); display:flex; align-items:center; justify-content:center;">
+        <div style="height:260px; border-radius:12px; overflow:hidden; position:relative; background: oklch(24% 0.01 240); display:flex; align-items:center; justify-content:center;">
           <sc-if value="{{ hasPreview }}" hint-placeholder-val="{{ false }}">
             <img src="{{ previewUrl }}" style="max-width:100%; max-height:100%; object-fit:contain;" />
           </sc-if>
           <sc-if value="{{ noPreview }}" hint-placeholder-val="{{ true }}">
-            <span style="font-family:'IBM Plex Mono', monospace; color: oklch(85% 0.01 240); font-size:13px;">camera preview</span>
+            <video id="dc-camera" style="width:100%; height:100%; object-fit:cover;"></video>
           </sc-if>
         </div>
-        <button onClick="{{ captureFromCamera }}" style="width:100%; margin-top:14px; padding:14px; border-radius:10px; border:1px solid oklch(46% 0.09 175); background: oklch(99% 0.002 200); color: oklch(46% 0.09 175); font-size:15px; font-weight:600; cursor:pointer;">📷 Capture Label</button>
+        <sc-if value="{{ hasCameraError }}" hint-placeholder-val="{{ false }}">
+          <div style="margin-top:10px; font-size:13px; color: oklch(53% 0.18 25);">{{ cameraErrorText }}</div>
+        </sc-if>
+        <sc-if value="{{ noPreview }}" hint-placeholder-val="{{ true }}">
+          <button onClick="{{ captureFromCamera }}" style="width:100%; margin-top:14px; padding:14px; border-radius:10px; border:1px solid oklch(46% 0.09 175); background: oklch(99% 0.002 200); color: oklch(46% 0.09 175); font-size:15px; font-weight:600; cursor:pointer;">📷 Capture Label</button>
+        </sc-if>
+        <sc-if value="{{ hasPreview }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ retakePhoto }}" style="width:100%; margin-top:14px; padding:14px; border-radius:10px; border:1px solid oklch(90% 0.008 220); background: oklch(99% 0.002 200); color: oklch(22% 0.02 240); font-size:15px; font-weight:600; cursor:pointer;">↺ Retake</button>
+        </sc-if>
       </sc-if>
 
       <div style="margin-top:20px;">
@@ -241,11 +249,6 @@ function titleCase(s) {
   return String(s).replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function placeholderCapture() {
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='260'><rect width='400' height='260' fill='#e9ede9'/><g stroke='#c7cfc9' stroke-width='2'>${Array.from({length:12}).map((_,i)=>`<line x1='${i*40-40}' y1='260' x2='${i*40+40}' y2='0'/>`).join('')}</g><text x='200' y='135' font-family='monospace' font-size='14' fill='#5a655e' text-anchor='middle'>captured label</text></svg>`;
-  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
-}
-
 class Component extends DCLogic {
   state = {
     screen: 'profile',
@@ -258,6 +261,7 @@ class Component extends DCLogic {
     manualText: '',
     analyzing: false,
     analyzeError: null,
+    cameraError: null,
     result: null,
   };
 
@@ -282,7 +286,7 @@ class Component extends DCLogic {
     this.setState(s => ({ customAllergens: s.customAllergens.filter(c => c.id !== id) }));
   }
 
-  setTab(tab) { this.setState({ scanTab: tab, previewUrl: null, uploadedFile: null }); }
+  setTab(tab) { this.setState({ scanTab: tab, previewUrl: null, uploadedFile: null, cameraError: null }); }
 
   onFileChange(e) {
     const file = e.target.files && e.target.files[0];
@@ -292,7 +296,87 @@ class Component extends DCLogic {
     reader.readAsDataURL(file);
   }
 
-  captureFromCamera() { this.setState({ previewUrl: placeholderCapture(), uploadedFile: null }); }
+  // --- Live camera (getUserMedia) -----------------------------------------
+  // The stream is held on the instance (not in state) to avoid re-render loops;
+  // componentDidUpdate reconciles it with the current screen/tab/preview.
+  async ensureCamera() {
+    if (this._stream || this._starting) return;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      this.setState({ cameraError: 'This browser does not support camera access. Use Upload Photo or paste text.' });
+      return;
+    }
+    this._starting = true;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+      this._starting = false;
+      const s = this.state;
+      if (s.screen === 'scan' && s.scanTab === 'camera' && !s.previewUrl) {
+        this._stream = stream;
+        this.attachStream();
+      } else {
+        stream.getTracks().forEach(t => t.stop()); // tab changed while we waited
+      }
+    } catch (err) {
+      this._starting = false;
+      this.setState({ cameraError: 'Camera unavailable: ' + ((err && err.message) || err) + '. Use Upload Photo or paste text.' });
+    }
+  }
+
+  attachStream() {
+    const video = document.getElementById('dc-camera');
+    if (!video || !this._stream) return;
+    if (video.srcObject !== this._stream) {
+      video.muted = true;
+      video.autoplay = true;
+      video.playsInline = true;
+      video.setAttribute('playsinline', '');
+      video.srcObject = this._stream;
+      const p = video.play();
+      if (p && p.catch) p.catch(() => {});
+    }
+  }
+
+  stopCamera() {
+    if (this._stream) {
+      this._stream.getTracks().forEach(t => t.stop());
+      this._stream = null;
+    }
+    const video = document.getElementById('dc-camera');
+    if (video) video.srcObject = null;
+  }
+
+  captureFromCamera() {
+    const video = document.getElementById('dc-camera');
+    if (!video || !video.videoWidth) {
+      this.setState({ cameraError: 'Camera not ready yet — give it a second and try again.' });
+      return;
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL('image/png');
+    this.stopCamera();
+    this.setState({ previewUrl: dataUrl, uploadedFile: null, cameraError: null });
+  }
+
+  retakePhoto() { this.setState({ previewUrl: null, cameraError: null }); }
+
+  // Keep the camera stream in sync with what the UI is showing.
+  syncCamera() {
+    const s = this.state;
+    const wantCamera = s.screen === 'scan' && s.scanTab === 'camera' && !s.previewUrl;
+    if (wantCamera) {
+      if (this._stream) this.attachStream();
+      else this.ensureCamera();
+    } else if (this._stream) {
+      this.stopCamera();
+    }
+  }
+
+  componentDidMount() { this.syncCamera(); }
+  componentDidUpdate() { this.syncCamera(); }
+  componentWillUnmount() { this.stopCamera(); }
 
   onManualTextChange(e) { this.setState({ manualText: e.target.value }); }
 
@@ -489,6 +573,9 @@ class Component extends DCLogic {
       previewUrl: s.previewUrl,
       onFileChange: (e) => this.onFileChange(e),
       captureFromCamera: () => this.captureFromCamera(),
+      retakePhoto: () => this.retakePhoto(),
+      hasCameraError: !!s.cameraError,
+      cameraErrorText: s.cameraError || '',
 
       manualText: s.manualText,
       onManualTextChange: (e) => this.onManualTextChange(e),
