@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; box-sizing: border-box; }
+    * { box-sizing: border-box; }
+    input, button { font-family: 'IBM Plex Sans', sans-serif; }
+  </style>
+</helmet>
+
+<div style="min-height:100vh; width:100%; background: oklch(98% 0.004 200); font-family:'IBM Plex Sans', sans-serif; color: oklch(22% 0.02 240); display:flex; flex-direction:column; align-items:center; padding: 48px 20px 80px;">
+
+  <!-- Header -->
+  <div style="width:100%; max-width:760px; display:flex; align-items:center; gap:14px; margin-bottom:36px;">
+    <div style="width:44px; height:44px; border-radius:10px; background: oklch(46% 0.09 175); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+      <span style="font-family:'IBM Plex Mono', monospace; font-weight:600; font-size:15px; color: oklch(99% 0.002 200); letter-spacing:-0.5px;">AS</span>
+    </div>
+    <div>
+      <div style="font-size:19px; font-weight:600; line-height:1.2;">Allergy Scanner</div>
+      <div style="font-size:13px; color: oklch(50% 0.015 240); font-family:'IBM Plex Mono', monospace;">personalized ingredient screening</div>
+    </div>
+  </div>
+
+  <!-- Stepper -->
+  <div style="width:100%; max-width:760px; display:flex; align-items:center; margin-bottom:32px;">
+    <div onClick="{{ goToProfile }}" style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+      <div style="{{ step1CircleStyle }}">1</div>
+      <span style="{{ step1TextStyle }}">Allergy Profile</span>
+    </div>
+    <div style="flex:1; height:1px; background: oklch(90% 0.008 220); margin:0 14px;"></div>
+    <div onClick="{{ goToScan }}" style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+      <div style="{{ step2CircleStyle }}">2</div>
+      <span style="{{ step2TextStyle }}">Scan Label</span>
+    </div>
+    <div style="flex:1; height:1px; background: oklch(90% 0.008 220); margin:0 14px;"></div>
+    <div onClick="{{ goToResult }}" style="display:flex; align-items:center; gap:10px; cursor:pointer;">
+      <div style="{{ step3CircleStyle }}">3</div>
+      <span style="{{ step3TextStyle }}">Result</span>
+    </div>
+  </div>
+
+  <!-- ========================= PROFILE SCREEN ========================= -->
+  <sc-if value="{{ isProfileScreen }}" hint-placeholder-val="{{ true }}">
+    <div style="width:100%; max-width:760px; background: oklch(99% 0.002 200); border:1px solid oklch(90% 0.008 220); border-radius:14px; padding:32px;">
+      <div style="font-size:20px; font-weight:600; margin-bottom:6px;">Your allergy profile</div>
+      <div style="font-size:14px; color: oklch(50% 0.015 240); margin-bottom:24px;">Select everything you're avoiding. We'll flag these on every label you scan.</div>
+
+      <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; margin-bottom:24px;">
+        <sc-for list="{{ allergenChips }}" as="chip" hint-placeholder-count="9">
+          <div onClick="{{ chip.toggle }}" style="{{ chip.cardStyle }}">
+            <div style="{{ chip.badgeStyle }}">{{ chip.icon }}</div>
+            <span style="font-size:14px; font-weight:500;">{{ chip.label }}</span>
+          </div>
+        </sc-for>
+      </div>
+
+      <sc-if value="{{ hasCustomAllergens }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:20px;">
+          <sc-for list="{{ customChips }}" as="chip" hint-placeholder-count="0">
+            <div style="display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:20px; background: oklch(94% 0.03 175); border:1px solid oklch(46% 0.09 175);">
+              <span style="font-size:13px; font-weight:500;">{{ chip.label }}</span>
+              <span onClick="{{ chip.remove }}" style="cursor:pointer; font-family:'IBM Plex Mono', monospace; font-size:13px; color: oklch(50% 0.015 240);">✕</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <div style="display:flex; gap:10px; margin-bottom:28px;">
+        <input value="{{ customInput }}" onChange="{{ onCustomInputChange }}" onKeyDown="{{ onCustomInputKeyDown }}" placeholder="Add another allergen or condition…" style="flex:1; padding:12px 14px; border-radius:10px; border:1px solid oklch(90% 0.008 220); font-size:14px; background: oklch(98% 0.004 200); color: oklch(22% 0.02 240); outline:none;" />
+        <button onClick="{{ addCustomAllergen }}" style="padding:12px 18px; border-radius:10px; border:1px solid oklch(46% 0.09 175); background: oklch(99% 0.002 200); color: oklch(46% 0.09 175); font-size:14px; font-weight:600; cursor:pointer;">Add</button>
+      </div>
+
+      <button onClick="{{ goToScan }}" style="width:100%; padding:14px; border-radius:10px; border:none; background: oklch(46% 0.09 175); color: oklch(99% 0.002 200); font-size:15px; font-weight:600; cursor:pointer;">Continue to Scan →</button>
+    </div>
+  </sc-if>
+
+  <!-- ========================= SCAN SCREEN ========================= -->
+  <sc-if value="{{ isScanScreen }}" hint-placeholder-val="{{ false }}">
+    <div style="width:100%; max-width:760px; background: oklch(99% 0.002 200); border:1px solid oklch(90% 0.008 220); border-radius:14px; padding:32px;">
+      <div style="font-size:20px; font-weight:600; margin-bottom:6px;">Scan a label</div>
+      <div style="font-size:14px; color: oklch(50% 0.015 240); margin-bottom:20px;">Checking against: {{ activeAllergenSummary }}</div>
+
+      <div style="display:flex; gap:8px; margin-bottom:20px; background: oklch(96% 0.006 210); border-radius:10px; padding:4px;">
+        <div onClick="{{ setTabUpload }}" style="{{ uploadTabStyle }}">Upload Photo</div>
+        <div onClick="{{ setTabCamera }}" style="{{ cameraTabStyle }}">Live Camera</div>
+      </div>
+
+      <sc-if value="{{ isUploadTab }}" hint-placeholder-val="{{ true }}">
+        <label style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; height:260px; border:2px dashed oklch(90% 0.008 220); border-radius:12px; cursor:pointer; background: oklch(98% 0.004 200); overflow:hidden;">
+          <sc-if value="{{ hasPreview }}" hint-placeholder-val="{{ false }}">
+            <img src="{{ previewUrl }}" style="max-width:100%; max-height:100%; object-fit:contain;" />
+          </sc-if>
+          <sc-if value="{{ noPreview }}" hint-placeholder-val="{{ true }}">
+            <div style="width:48px; height:48px; border-radius:8px; background: oklch(94% 0.03 175); display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono', monospace; color: oklch(46% 0.09 175); font-size:20px;">↑</div>
+            <div style="font-size:14px; font-weight:500;">Click to upload a label photo</div>
+            <div style="font-size:12px; color: oklch(50% 0.015 240); font-family:'IBM Plex Mono', monospace;">JPG or PNG</div>
+          </sc-if>
+          <input type="file" accept="image/*" onChange="{{ onFileChange }}" style="display:none;" />
+        </label>
+      </sc-if>
+
+      <sc-if value="{{ isCameraTab }}" hint-placeholder-val="{{ false }}">
+        <div style="height:260px; border-radius:12px; overflow:hidden; position:relative; background: repeating-linear-gradient(135deg, oklch(30% 0.01 240) 0px, oklch(30% 0.01 240) 14px, oklch(24% 0.01 240) 14px, oklch(24% 0.01 240) 28px); display:flex; align-items:center; justify-content:center;">
+          <sc-if value="{{ hasPreview }}" hint-placeholder-val="{{ false }}">
+            <img src="{{ previewUrl }}" style="max-width:100%; max-height:100%; object-fit:contain;" />
+          </sc-if>
+          <sc-if value="{{ noPreview }}" hint-placeholder-val="{{ true }}">
+            <span style="font-family:'IBM Plex Mono', monospace; color: oklch(85% 0.01 240); font-size:13px;">camera preview</span>
+          </sc-if>
+        </div>
+        <button onClick="{{ captureFromCamera }}" style="width:100%; margin-top:14px; padding:14px; border-radius:10px; border:1px solid oklch(46% 0.09 175); background: oklch(99% 0.002 200); color: oklch(46% 0.09 175); font-size:15px; font-weight:600; cursor:pointer;">📷 Capture Label</button>
+      </sc-if>
+
+      <div style="display:flex; gap:10px; margin-top:24px;">
+        <button onClick="{{ goToProfile }}" style="padding:14px 20px; border-radius:10px; border:1px solid oklch(90% 0.008 220); background: oklch(99% 0.002 200); color: oklch(22% 0.02 240); font-size:15px; font-weight:500; cursor:pointer;">Back</button>
+        <button onClick="{{ analyze }}" disabled="{{ analyzeDisabled }}" style="{{ analyzeButtonStyle }}">{{ analyzeButtonLabel }}</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- ========================= RESULT SCREEN ========================= -->
+  <sc-if value="{{ isResultScreen }}" hint-placeholder-val="{{ false }}">
+    <div style="width:100%; max-width:760px;">
+
+      <sc-if value="{{ isSafe }}" hint-placeholder-val="{{ false }}">
+        <div style="border-radius:14px; padding:24px 28px; background: oklch(95% 0.045 150); border:1px solid oklch(52% 0.14 150); display:flex; align-items:center; gap:16px; margin-bottom:20px;">
+          <div style="width:48px; height:48px; border-radius:50%; background: oklch(52% 0.14 150); flex-shrink:0; display:flex; align-items:center; justify-content:center; color:white; font-size:22px; font-weight:700;">✓</div>
+          <div>
+            <div style="font-size:22px; font-weight:700; color: oklch(30% 0.1 150);">Safe to eat</div>
+            <div style="font-size:14px; color: oklch(35% 0.08 150);">No ingredients in this label match your allergy profile.</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isUnsafe }}" hint-placeholder-val="{{ true }}">
+        <div style="border-radius:14px; padding:24px 28px; background: oklch(95% 0.045 25); border:1px solid oklch(53% 0.18 25); display:flex; align-items:center; gap:16px; margin-bottom:20px;">
+          <div style="width:48px; height:48px; border-radius:50%; background: oklch(53% 0.18 25); flex-shrink:0; display:flex; align-items:center; justify-content:center; color:white; font-size:22px; font-weight:700;">✕</div>
+          <div>
+            <div style="font-size:22px; font-weight:700; color: oklch(28% 0.13 25);">Not safe</div>
+            <div style="font-size:14px; color: oklch(35% 0.1 25);">This label contains ingredients that match your allergy profile.</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isUnsure }}" hint-placeholder-val="{{ false }}">
+        <div style="border-radius:14px; padding:24px 28px; background: oklch(95% 0.04 75); border:1px solid oklch(62% 0.13 75); display:flex; align-items:center; gap:16px; margin-bottom:20px;">
+          <div style="width:48px; height:48px; border-radius:50%; background: oklch(62% 0.13 75); flex-shrink:0; display:flex; align-items:center; justify-content:center; color:white; font-size:22px; font-weight:700;">?</div>
+          <div>
+            <div style="font-size:22px; font-weight:700; color: oklch(32% 0.1 75);">Unsure</div>
+            <div style="font-size:14px; color: oklch(38% 0.08 75);">This label may contain traces of {{ traceMatchLabels }}. Labeling isn't explicit.</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <div style="background: oklch(99% 0.002 200); border:1px solid oklch(90% 0.008 220); border-radius:14px; padding:28px;">
+        <div style="display:flex; gap:20px; margin-bottom:24px;">
+          <div style="width:88px; height:88px; border-radius:10px; overflow:hidden; flex-shrink:0; background: oklch(96% 0.006 210); display:flex; align-items:center; justify-content:center;">
+            <sc-if value="{{ hasPreview }}" hint-placeholder-val="{{ false }}">
+              <img src="{{ previewUrl }}" style="width:100%; height:100%; object-fit:cover;" />
+            </sc-if>
+            <sc-if value="{{ noPreview }}" hint-placeholder-val="{{ true }}">
+              <span style="font-family:'IBM Plex Mono', monospace; font-size:10px; color: oklch(55% 0.01 220);">label</span>
+            </sc-if>
+          </div>
+          <div>
+            <div style="font-size:12px; font-family:'IBM Plex Mono', monospace; color: oklch(50% 0.015 240); margin-bottom:4px;">SCANNED PRODUCT</div>
+            <div style="font-size:18px; font-weight:600;">{{ currentProduct.name }}</div>
+            <div style="font-size:13px; color: oklch(50% 0.015 240); margin-top:6px;">Checked against: {{ activeAllergenSummary }}</div>
+          </div>
+        </div>
+
+        <sc-if value="{{ hasFlagged }}" hint-placeholder-val="{{ true }}">
+          <div style="margin-bottom:20px;">
+            <div style="font-size:13px; font-weight:600; color: oklch(28% 0.13 25); margin-bottom:10px;">Flagged ingredients</div>
+            <div style="display:flex; flex-wrap:wrap; gap:8px;">
+              <sc-for list="{{ flaggedList }}" as="ing" hint-placeholder-count="2">
+                <div style="padding:7px 12px; border-radius:20px; background: oklch(95% 0.045 25); border:1px solid oklch(53% 0.18 25); font-size:13px; font-weight:500; color: oklch(28% 0.13 25);">{{ ing.name }}</div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <div style="font-size:13px; font-weight:600; color: oklch(50% 0.015 240); margin-bottom:10px;">Full ingredient list</div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:28px;">
+          <sc-for list="{{ ingredientsComputed }}" as="ing" hint-placeholder-count="6">
+            <div style="{{ ing.pillStyle }}">{{ ing.name }}</div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex; gap:10px;">
+          <button onClick="{{ goToProfile }}" style="padding:14px 20px; border-radius:10px; border:1px solid oklch(90% 0.008 220); background: oklch(99% 0.002 200); color: oklch(22% 0.02 240); font-size:15px; font-weight:500; cursor:pointer;">Edit Allergy Profile</button>
+          <button onClick="{{ scanAnother }}" style="flex:1; padding:14px; border-radius:10px; border:none; background: oklch(46% 0.09 175); color: oklch(99% 0.002 200); font-size:15px; font-weight:600; cursor:pointer;">Scan Another Label</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+const ALLERGEN_CATALOG = [
+  { id: 'gluten', label: 'Gluten', icon: 'Gl' },
+  { id: 'dairy', label: 'Dairy', icon: 'Da' },
+  { id: 'treenuts', label: 'Tree Nuts', icon: 'Tn' },
+  { id: 'shellfish', label: 'Shellfish', icon: 'Sh' },
+  { id: 'peanuts', label: 'Peanuts', icon: 'Pn' },
+  { id: 'soy', label: 'Soy', icon: 'So' },
+  { id: 'eggs', label: 'Eggs', icon: 'Eg' },
+  { id: 'fish', label: 'Fish', icon: 'Fi' },
+  { id: 'sesame', label: 'Sesame', icon: 'Se' },
+];
+
+const PRODUCTS = [
+  {
+    id: 'granola',
+    name: 'Chocolate Chip Granola Bar',
+    traceTags: [],
+    ingredients: [
+      { name: 'Rolled Oats', tags: [] },
+      { name: 'Wheat Flour', tags: ['gluten'] },
+      { name: 'Cane Sugar', tags: [] },
+      { name: 'Palm Oil', tags: [] },
+      { name: 'Chocolate Chips (Milk, Cocoa)', tags: ['dairy'] },
+      { name: 'Almonds', tags: ['treenuts'] },
+      { name: 'Honey', tags: [] },
+      { name: 'Sea Salt', tags: [] },
+      { name: 'Soy Lecithin', tags: ['soy'] },
+    ],
+  },
+  {
+    id: 'crackers',
+    name: 'Garlic Herb Rice Crackers',
+    traceTags: ['treenuts'],
+    ingredients: [
+      { name: 'Rice', tags: [] },
+      { name: 'Sea Salt', tags: [] },
+      { name: 'Garlic Powder', tags: [] },
+      { name: 'Onion Powder', tags: [] },
+      { name: 'Sunflower Oil', tags: [] },
+      { name: 'Dried Parsley', tags: [] },
+    ],
+  },
+  {
+    id: 'shrimpchips',
+    name: 'Shrimp Chips',
+    traceTags: [],
+    ingredients: [
+      { name: 'Potato Starch', tags: [] },
+      { name: 'Shrimp Powder', tags: ['shellfish'] },
+      { name: 'Tapioca Starch', tags: [] },
+      { name: 'Salt', tags: [] },
+      { name: 'Sugar', tags: [] },
+      { name: 'Paprika Extract', tags: [] },
+    ],
+  },
+];
+
+function placeholderCapture() {
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='260'><rect width='400' height='260' fill='#e9ede9'/><g stroke='#c7cfc9' stroke-width='2'>${Array.from({length:12}).map((_,i)=>`<line x1='${i*40-40}' y1='260' x2='${i*40+40}' y2='0'/>`).join('')}</g><text x='200' y='135' font-family='monospace' font-size='14' fill='#5a655e' text-anchor='middle'>captured label</text></svg>`;
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+}
+
+class Component extends DCLogic {
+  state = {
+    screen: 'profile',
+    active: { gluten: false, dairy: false, treenuts: false, shellfish: false },
+    customAllergens: [],
+    customInput: '',
+    scanTab: 'upload',
+    previewUrl: null,
+    analyzing: false,
+    productIndex: 0,
+  };
+
+  goTo(screen) { this.setState({ screen }); }
+
+  toggleAllergen(id) {
+    this.setState(s => ({ active: { ...s.active, [id]: !s.active[id] } }));
+  }
+
+  onCustomInputChange(e) { this.setState({ customInput: e.target.value }); }
+
+  addCustomAllergen() {
+    const label = this.state.customInput.trim();
+    if (!label) return;
+    const id = 'custom-' + Date.now();
+    this.setState(s => ({ customAllergens: [...s.customAllergens, { id, label }], customInput: '' }));
+  }
+
+  onCustomInputKeyDown(e) { if (e.key === 'Enter') this.addCustomAllergen(); }
+
+  removeCustomAllergen(id) {
+    this.setState(s => ({ customAllergens: s.customAllergens.filter(c => c.id !== id) }));
+  }
+
+  setTab(tab) { this.setState({ scanTab: tab, previewUrl: null }); }
+
+  onFileChange(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => this.setState({ previewUrl: reader.result });
+    reader.readAsDataURL(file);
+  }
+
+  captureFromCamera() { this.setState({ previewUrl: placeholderCapture() }); }
+
+  analyze() {
+    if (!this.state.previewUrl) return;
+    this.setState({ analyzing: true });
+    setTimeout(() => {
+      this.setState(s => ({ analyzing: false, screen: 'result' }));
+    }, 1100);
+  }
+
+  scanAnother() {
+    this.setState(s => ({
+      screen: 'scan',
+      previewUrl: null,
+      productIndex: (s.productIndex + 1) % PRODUCTS.length,
+    }));
+  }
+
+  renderVals() {
+    const s = this.state;
+    const teal = 'oklch(46% 0.09 175)';
+    const tealBg = 'oklch(94% 0.03 175)';
+    const border = 'oklch(90% 0.008 220)';
+    const neutralBg = 'oklch(96% 0.006 210)';
+
+    const activeIds = new Set(
+      ALLERGEN_CATALOG.filter(a => s.active[a.id]).map(a => a.id)
+    );
+    // custom allergens don't map to product tags but count as "checked"
+    const activeLabels = [
+      ...ALLERGEN_CATALOG.filter(a => s.active[a.id]).map(a => a.label),
+      ...s.customAllergens.map(c => c.label),
+    ];
+
+    const allergenChips = ALLERGEN_CATALOG.map(a => {
+      const active = !!s.active[a.id];
+      return {
+        ...a,
+        toggle: () => this.toggleAllergen(a.id),
+        cardStyle: {
+          display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 14px',
+          borderRadius: '10px', cursor: 'pointer',
+          border: active ? `1px solid ${teal}` : `1px solid ${border}`,
+          background: active ? tealBg : 'oklch(99% 0.002 200)',
+        },
+        badgeStyle: {
+          width: '28px', height: '28px', borderRadius: '7px', flexShrink: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: "'IBM Plex Mono', monospace", fontSize: '11px', fontWeight: 600,
+          background: active ? teal : neutralBg,
+          color: active ? 'oklch(99% 0.002 200)' : 'oklch(50% 0.015 240)',
+        },
+      };
+    });
+
+    const customChips = s.customAllergens.map(c => ({
+      ...c,
+      remove: () => this.removeCustomAllergen(c.id),
+    }));
+
+    const product = PRODUCTS[s.productIndex];
+    const ingredientsComputed = product.ingredients.map(ing => {
+      const flagged = ing.tags.some(t => activeIds.has(t));
+      return {
+        ...ing,
+        flagged,
+        pillStyle: {
+          padding: '7px 12px', borderRadius: '20px', fontSize: '13px',
+          border: flagged ? '1px solid oklch(53% 0.18 25)' : `1px solid ${border}`,
+          background: flagged ? 'oklch(95% 0.045 25)' : 'oklch(99% 0.002 200)',
+          color: flagged ? 'oklch(28% 0.13 25)' : 'oklch(30% 0.02 240)',
+          fontWeight: flagged ? 600 : 400,
+        },
+      };
+    });
+    const flaggedList = ingredientsComputed.filter(i => i.flagged);
+    const traceMatches = product.traceTags.filter(t => activeIds.has(t));
+    const isUnsafe = flaggedList.length > 0;
+    const isUnsure = !isUnsafe && traceMatches.length > 0;
+    const isSafe = !isUnsafe && !isUnsure;
+
+    const stepStyle = (n, isCurrent) => ({
+      width: '26px', height: '26px', borderRadius: '50%', display: 'flex',
+      alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 600,
+      fontFamily: "'IBM Plex Mono', monospace",
+      background: isCurrent ? teal : 'oklch(99% 0.002 200)',
+      color: isCurrent ? 'oklch(99% 0.002 200)' : 'oklch(50% 0.015 240)',
+      border: isCurrent ? `1px solid ${teal}` : `1px solid ${border}`,
+    });
+    const stepTextStyle = (isCurrent) => ({
+      fontSize: '14px', fontWeight: isCurrent ? 600 : 400,
+      color: isCurrent ? 'oklch(22% 0.02 240)' : 'oklch(50% 0.015 240)',
+    });
+
+    const tabStyle = (isActive) => ({
+      flex: 1, textAlign: 'center', padding: '10px', borderRadius: '8px', cursor: 'pointer',
+      fontSize: '14px', fontWeight: 600,
+      background: isActive ? 'oklch(99% 0.002 200)' : 'transparent',
+      color: isActive ? 'oklch(22% 0.02 240)' : 'oklch(50% 0.015 240)',
+      boxShadow: isActive ? '0 1px 3px oklch(0% 0 0 / 0.08)' : 'none',
+    });
+
+    const hasPreview = !!s.previewUrl;
+
+    return {
+      isProfileScreen: s.screen === 'profile',
+      isScanScreen: s.screen === 'scan',
+      isResultScreen: s.screen === 'result',
+      goToProfile: () => this.goTo('profile'),
+      goToScan: () => this.goTo('scan'),
+      goToResult: () => this.goTo('result'),
+
+      step1CircleStyle: stepStyle(1, s.screen === 'profile'),
+      step2CircleStyle: stepStyle(2, s.screen === 'scan'),
+      step3CircleStyle: stepStyle(3, s.screen === 'result'),
+      step1TextStyle: stepTextStyle(s.screen === 'profile'),
+      step2TextStyle: stepTextStyle(s.screen === 'scan'),
+      step3TextStyle: stepTextStyle(s.screen === 'result'),
+
+      allergenChips,
+      customChips,
+      hasCustomAllergens: customChips.length > 0,
+      customInput: s.customInput,
+      onCustomInputChange: (e) => this.onCustomInputChange(e),
+      onCustomInputKeyDown: (e) => this.onCustomInputKeyDown(e),
+      addCustomAllergen: () => this.addCustomAllergen(),
+
+      activeAllergenSummary: activeLabels.length ? activeLabels.join(', ') : 'nothing selected',
+
+      isUploadTab: s.scanTab === 'upload',
+      isCameraTab: s.scanTab === 'camera',
+      uploadTabStyle: tabStyle(s.scanTab === 'upload'),
+      cameraTabStyle: tabStyle(s.scanTab === 'camera'),
+      setTabUpload: () => this.setTab('upload'),
+      setTabCamera: () => this.setTab('camera'),
+
+      hasPreview,
+      noPreview: !hasPreview,
+      previewUrl: s.previewUrl,
+      onFileChange: (e) => this.onFileChange(e),
+      captureFromCamera: () => this.captureFromCamera(),
+
+      analyzing: s.analyzing,
+      analyzeDisabled: !hasPreview || s.analyzing,
+      analyzeButtonLabel: s.analyzing ? 'Analyzing…' : 'Analyze Label',
+      analyzeButtonStyle: {
+        flex: 1, padding: '14px', borderRadius: '10px', border: 'none',
+        fontSize: '15px', fontWeight: 600,
+        cursor: (!hasPreview || s.analyzing) ? 'not-allowed' : 'pointer',
+        background: (!hasPreview || s.analyzing) ? 'oklch(85% 0.01 200)' : teal,
+        color: (!hasPreview || s.analyzing) ? 'oklch(50% 0.01 220)' : 'oklch(99% 0.002 200)',
+      },
+      analyze: () => this.analyze(),
+      goToProfile2: () => this.goTo('profile'),
+      scanAnother: () => this.scanAnother(),
+
+      currentProduct: product,
+      ingredientsComputed,
+      flaggedList,
+      hasFlagged: flaggedList.length > 0,
+      isSafe, isUnsafe, isUnsure,
+      traceMatchLabels: traceMatches.map(t => ALLERGEN_CATALOG.find(a => a.id === t)?.label).join(', '),
+    };
+  }
+}
+
+</script>
+</body>
+</html>
