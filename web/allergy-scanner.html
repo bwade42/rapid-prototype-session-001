@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="./support.js"></script>
+<script src="./engine.browser.js"></script>
 </head>
 <body>
 <x-dc>
@@ -120,10 +121,19 @@
         <button onClick="{{ captureFromCamera }}" style="width:100%; margin-top:14px; padding:14px; border-radius:10px; border:1px solid oklch(46% 0.09 175); background: oklch(99% 0.002 200); color: oklch(46% 0.09 175); font-size:15px; font-weight:600; cursor:pointer;">📷 Capture Label</button>
       </sc-if>
 
+      <div style="margin-top:20px;">
+        <div style="font-size:12px; color: oklch(50% 0.015 240); margin-bottom:8px; font-family:'IBM Plex Mono', monospace;">OR PASTE INGREDIENTS TEXT</div>
+        <textarea value="{{ manualText }}" onChange="{{ onManualTextChange }}" placeholder="Ingredients: enriched wheat flour, sugar, whey, soy lecithin…" style="width:100%; min-height:74px; padding:12px 14px; border-radius:10px; border:1px solid oklch(90% 0.008 220); font-size:14px; font-family:'IBM Plex Sans', sans-serif; background: oklch(98% 0.004 200); color: oklch(22% 0.02 240); outline:none; resize:vertical;"></textarea>
+      </div>
+
       <div style="display:flex; gap:10px; margin-top:24px;">
         <button onClick="{{ goToProfile }}" style="padding:14px 20px; border-radius:10px; border:1px solid oklch(90% 0.008 220); background: oklch(99% 0.002 200); color: oklch(22% 0.02 240); font-size:15px; font-weight:500; cursor:pointer;">Back</button>
         <button onClick="{{ analyze }}" disabled="{{ analyzeDisabled }}" style="{{ analyzeButtonStyle }}">{{ analyzeButtonLabel }}</button>
       </div>
+
+      <sc-if value="{{ hasAnalyzeError }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top:12px; font-size:13px; color: oklch(53% 0.18 25);">{{ analyzeErrorText }}</div>
+      </sc-if>
     </div>
   </sc-if>
 
@@ -220,50 +230,16 @@ const ALLERGEN_CATALOG = [
   { id: 'sesame', label: 'Sesame', icon: 'Se' },
 ];
 
-const PRODUCTS = [
-  {
-    id: 'granola',
-    name: 'Chocolate Chip Granola Bar',
-    traceTags: [],
-    ingredients: [
-      { name: 'Rolled Oats', tags: [] },
-      { name: 'Wheat Flour', tags: ['gluten'] },
-      { name: 'Cane Sugar', tags: [] },
-      { name: 'Palm Oil', tags: [] },
-      { name: 'Chocolate Chips (Milk, Cocoa)', tags: ['dairy'] },
-      { name: 'Almonds', tags: ['treenuts'] },
-      { name: 'Honey', tags: [] },
-      { name: 'Sea Salt', tags: [] },
-      { name: 'Soy Lecithin', tags: ['soy'] },
-    ],
-  },
-  {
-    id: 'crackers',
-    name: 'Garlic Herb Rice Crackers',
-    traceTags: ['treenuts'],
-    ingredients: [
-      { name: 'Rice', tags: [] },
-      { name: 'Sea Salt', tags: [] },
-      { name: 'Garlic Powder', tags: [] },
-      { name: 'Onion Powder', tags: [] },
-      { name: 'Sunflower Oil', tags: [] },
-      { name: 'Dried Parsley', tags: [] },
-    ],
-  },
-  {
-    id: 'shrimpchips',
-    name: 'Shrimp Chips',
-    traceTags: [],
-    ingredients: [
-      { name: 'Potato Starch', tags: [] },
-      { name: 'Shrimp Powder', tags: ['shellfish'] },
-      { name: 'Tapioca Starch', tags: [] },
-      { name: 'Salt', tags: [] },
-      { name: 'Sugar', tags: [] },
-      { name: 'Paprika Extract', tags: [] },
-    ],
-  },
-];
+// Map an engine allergen key (e.g. "tree_nut") to the UI profile chip id
+// (e.g. "treenuts"). Falls back to window.AllergyEngine.ENGINE_TO_UI at runtime.
+const ENGINE_TO_UI = {
+  wheat: 'gluten', dairy: 'dairy', tree_nut: 'treenuts', shellfish: 'shellfish',
+  peanut: 'peanuts', soy: 'soy', egg: 'eggs', fish: 'fish', sesame: 'sesame',
+};
+
+function titleCase(s) {
+  return String(s).replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 function placeholderCapture() {
   const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='400' height='260'><rect width='400' height='260' fill='#e9ede9'/><g stroke='#c7cfc9' stroke-width='2'>${Array.from({length:12}).map((_,i)=>`<line x1='${i*40-40}' y1='260' x2='${i*40+40}' y2='0'/>`).join('')}</g><text x='200' y='135' font-family='monospace' font-size='14' fill='#5a655e' text-anchor='middle'>captured label</text></svg>`;
@@ -273,13 +249,16 @@ function placeholderCapture() {
 class Component extends DCLogic {
   state = {
     screen: 'profile',
-    active: { gluten: false, dairy: false, treenuts: false, shellfish: false },
+    active: { gluten: false, dairy: false, treenuts: false, shellfish: false, peanuts: false, soy: false, eggs: false, fish: false, sesame: false },
     customAllergens: [],
     customInput: '',
     scanTab: 'upload',
     previewUrl: null,
+    uploadedFile: null,
+    manualText: '',
     analyzing: false,
-    productIndex: 0,
+    analyzeError: null,
+    result: null,
   };
 
   goTo(screen) { this.setState({ screen }); }
@@ -303,32 +282,86 @@ class Component extends DCLogic {
     this.setState(s => ({ customAllergens: s.customAllergens.filter(c => c.id !== id) }));
   }
 
-  setTab(tab) { this.setState({ scanTab: tab, previewUrl: null }); }
+  setTab(tab) { this.setState({ scanTab: tab, previewUrl: null, uploadedFile: null }); }
 
   onFileChange(e) {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => this.setState({ previewUrl: reader.result });
+    reader.onload = () => this.setState({ previewUrl: reader.result, uploadedFile: file });
     reader.readAsDataURL(file);
   }
 
-  captureFromCamera() { this.setState({ previewUrl: placeholderCapture() }); }
+  captureFromCamera() { this.setState({ previewUrl: placeholderCapture(), uploadedFile: null }); }
 
-  analyze() {
-    if (!this.state.previewUrl) return;
-    this.setState({ analyzing: true });
-    setTimeout(() => {
-      this.setState(s => ({ analyzing: false, screen: 'result' }));
-    }, 1100);
+  onManualTextChange(e) { this.setState({ manualText: e.target.value }); }
+
+  async analyze() {
+    const s = this.state;
+    const hasText = s.manualText.trim().length > 0;
+    if (!s.previewUrl && !hasText) return;
+    this.setState({ analyzing: true, analyzeError: null });
+    try {
+      const E = window.AllergyEngine;
+      if (!E) throw new Error('Engine failed to load. Refresh and try again.');
+      await E.ready;
+      let scan;
+      if (hasText) scan = await E.scanText(s.manualText);
+      else if (s.uploadedFile) scan = await E.scanImage(s.uploadedFile);
+      else scan = await E.scanImage(s.previewUrl);
+      this.setState({ analyzing: false, screen: 'result', result: this.buildResult(scan) });
+    } catch (err) {
+      this.setState({ analyzing: false, analyzeError: String((err && err.message) || err) });
+    }
+  }
+
+  // Turn the engine's ScanResult into the profile-relative verdict the UI shows.
+  buildResult(scan) {
+    const s = this.state;
+    const map = (window.AllergyEngine && window.AllergyEngine.ENGINE_TO_UI) || ENGINE_TO_UI;
+    const activeIds = new Set(ALLERGEN_CATALOG.filter(a => s.active[a.id]).map(a => a.id));
+    const detected = scan.detectedAllergens || [];
+    const ingredients = scan.ingredients || [];
+
+    // Only allergens the user actually cares about.
+    const inProfile = detected.filter(d => activeIds.has(map[d.allergenKey]));
+    const flagged = new Set(inProfile.map(d => d.matchedIngredient));
+
+    // Custom allergens: plain substring match against the ingredient list.
+    for (const c of s.customAllergens) {
+      const term = c.label.toLowerCase();
+      const hits = ingredients.filter(i => i.includes(term));
+      hits.forEach(h => flagged.add(h));
+    }
+
+    const high = inProfile.filter(d => d.severity === 'high');
+    const medium = inProfile.filter(d => d.severity === 'medium');
+    const customHit = [...s.customAllergens].some(c => ingredients.some(i => i.includes(c.label.toLowerCase())));
+    const noIngredients = ingredients.length === 0;
+
+    let verdict;
+    if (high.length || customHit) verdict = 'unsafe';
+    else if (medium.length || noIngredients) verdict = 'unsure';
+    else verdict = 'safe';
+
+    const traceLabels = [
+      ...new Set(medium.map(d => d.allergen)),
+      ...(noIngredients ? ['unreadable label text'] : []),
+    ].join(', ');
+
+    return {
+      ingredients,
+      flagged: [...flagged],
+      verdict,
+      noIngredients,
+      traceLabels,
+      rawText: scan.rawText || '',
+      productName: noIngredients ? 'Unread label' : 'Scanned label',
+    };
   }
 
   scanAnother() {
-    this.setState(s => ({
-      screen: 'scan',
-      previewUrl: null,
-      productIndex: (s.productIndex + 1) % PRODUCTS.length,
-    }));
+    this.setState({ screen: 'scan', previewUrl: null, uploadedFile: null, manualText: '', result: null, analyzeError: null });
   }
 
   renderVals() {
@@ -373,11 +406,12 @@ class Component extends DCLogic {
       remove: () => this.removeCustomAllergen(c.id),
     }));
 
-    const product = PRODUCTS[s.productIndex];
-    const ingredientsComputed = product.ingredients.map(ing => {
-      const flagged = ing.tags.some(t => activeIds.has(t));
+    const result = s.result;
+    const flaggedSet = new Set(result ? result.flagged : []);
+    const ingredientsComputed = (result ? result.ingredients : []).map(raw => {
+      const flagged = flaggedSet.has(raw);
       return {
-        ...ing,
+        name: titleCase(raw),
         flagged,
         pillStyle: {
           padding: '7px 12px', borderRadius: '20px', fontSize: '13px',
@@ -389,10 +423,9 @@ class Component extends DCLogic {
       };
     });
     const flaggedList = ingredientsComputed.filter(i => i.flagged);
-    const traceMatches = product.traceTags.filter(t => activeIds.has(t));
-    const isUnsafe = flaggedList.length > 0;
-    const isUnsure = !isUnsafe && traceMatches.length > 0;
-    const isSafe = !isUnsafe && !isUnsure;
+    const isUnsafe = result ? result.verdict === 'unsafe' : false;
+    const isUnsure = result ? result.verdict === 'unsure' : false;
+    const isSafe = result ? result.verdict === 'safe' : false;
 
     const stepStyle = (n, isCurrent) => ({
       width: '26px', height: '26px', borderRadius: '50%', display: 'flex',
@@ -416,6 +449,8 @@ class Component extends DCLogic {
     });
 
     const hasPreview = !!s.previewUrl;
+    const hasManualText = s.manualText.trim().length > 0;
+    const canAnalyze = (hasPreview || hasManualText) && !s.analyzing;
 
     return {
       isProfileScreen: s.screen === 'profile',
@@ -455,26 +490,30 @@ class Component extends DCLogic {
       onFileChange: (e) => this.onFileChange(e),
       captureFromCamera: () => this.captureFromCamera(),
 
+      manualText: s.manualText,
+      onManualTextChange: (e) => this.onManualTextChange(e),
+
       analyzing: s.analyzing,
-      analyzeDisabled: !hasPreview || s.analyzing,
+      analyzeDisabled: !canAnalyze,
       analyzeButtonLabel: s.analyzing ? 'Analyzing…' : 'Analyze Label',
       analyzeButtonStyle: {
         flex: 1, padding: '14px', borderRadius: '10px', border: 'none',
         fontSize: '15px', fontWeight: 600,
-        cursor: (!hasPreview || s.analyzing) ? 'not-allowed' : 'pointer',
-        background: (!hasPreview || s.analyzing) ? 'oklch(85% 0.01 200)' : teal,
-        color: (!hasPreview || s.analyzing) ? 'oklch(50% 0.01 220)' : 'oklch(99% 0.002 200)',
+        cursor: canAnalyze ? 'pointer' : 'not-allowed',
+        background: canAnalyze ? teal : 'oklch(85% 0.01 200)',
+        color: canAnalyze ? 'oklch(99% 0.002 200)' : 'oklch(50% 0.01 220)',
       },
       analyze: () => this.analyze(),
-      goToProfile2: () => this.goTo('profile'),
+      hasAnalyzeError: !!s.analyzeError,
+      analyzeErrorText: s.analyzeError || '',
       scanAnother: () => this.scanAnother(),
 
-      currentProduct: product,
+      currentProduct: { name: result ? result.productName : 'Scanned label' },
       ingredientsComputed,
       flaggedList,
       hasFlagged: flaggedList.length > 0,
       isSafe, isUnsafe, isUnsure,
-      traceMatchLabels: traceMatches.map(t => ALLERGEN_CATALOG.find(a => a.id === t)?.label).join(', '),
+      traceMatchLabels: result ? result.traceLabels : '',
     };
   }
 }
