@@ -69,3 +69,32 @@ def test_word_boundary_avoids_false_positive():
     result = scan_text("Ingredients: eggplant, water, salt.")
     names = {a.allergen for a in result.detected_allergens}
     assert "Egg" not in names
+
+
+def test_plural_allergen_keywords_match():
+    # Plurals must be caught — missing "almonds"/"cashews" would be a safety bug.
+    result = scan_text("Ingredients: rolled oats, almonds, cashews, honey.")
+    names = {a.allergen for a in result.detected_allergens}
+    assert "Tree Nut" in names
+    assert result.risk_level == "high"
+
+
+def test_parenthetical_subingredients_are_flattened():
+    # Allergens hidden inside parentheses must survive parsing.
+    result = scan_text("Ingredients: dark chocolate (cocoa, sugar, milk fat), oats.")
+    assert "milk fat" in result.ingredients
+    names = {a.allergen for a in result.detected_allergens}
+    assert "Dairy" in names
+
+
+def test_dietary_concerns_are_opt_in_and_dont_change_risk():
+    label = "Ingredients: water, sugar, citric acid, salt."
+    # Off by default: still low risk, no concern warnings.
+    default = scan_text(label)
+    assert default.risk_level == "low"
+    assert default.warnings == []
+
+    # Opt in: citric acid surfaces as a GERD/LPR warning, risk stays low.
+    with_concerns = scan_text(label, include_concerns=True)
+    assert with_concerns.risk_level == "low"
+    assert any("GERD/LPR" in w for w in with_concerns.warnings)

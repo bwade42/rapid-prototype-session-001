@@ -35,6 +35,7 @@ app.add_middleware(
 
 class ScanTextRequest(BaseModel):
     text: str
+    include_concerns: bool = False
 
 
 @app.get("/health")
@@ -46,14 +47,16 @@ def health() -> dict:
 def scan_text_endpoint(req: ScanTextRequest) -> dict:
     if not req.text or not req.text.strip():
         raise HTTPException(status_code=400, detail="Field 'text' must not be empty.")
-    return scan_text(req.text).to_dict()
+    return scan_text(req.text, include_concerns=req.include_concerns).to_dict()
 
 
 @app.post("/scan/image")
-async def scan_image_endpoint(file: UploadFile = File(...)) -> dict:
+async def scan_image_endpoint(
+    file: UploadFile = File(...), include_concerns: bool = False
+) -> dict:
     if file.content_type and not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Uploaded file must be an image.")
     image_bytes = await file.read()
     if not image_bytes:
         raise HTTPException(status_code=400, detail="Uploaded image is empty.")
-    return scan_label(image_bytes).to_dict()
+    return scan_label(image_bytes, include_concerns=include_concerns).to_dict()

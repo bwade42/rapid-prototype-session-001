@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Union
 
-from .allergen_engine import detect_allergens
+from .allergen_engine import detect_allergens, detect_dietary_concerns
 from .models import DetectedAllergen, ScanResult
 from .ocr import extract_text
 from .parser import parse_ingredients
@@ -31,11 +31,20 @@ __all__ = [
 ]
 
 
-def scan_text(raw_text: str, *, ocr_ok: bool = True) -> ScanResult:
-    """Run the full pipeline on already-extracted label text."""
+def scan_text(
+    raw_text: str, *, ocr_ok: bool = True, include_concerns: bool = False
+) -> ScanResult:
+    """Run the full pipeline on already-extracted label text.
+
+    Set ``include_concerns=True`` to also flag non-allergen dietary triggers
+    (GERD/LPR, histamine) as informational warnings.
+    """
     ingredients = parse_ingredients(raw_text)
     detected = detect_allergens(ingredients)
     risk, confidence, warnings = score_risk(ingredients, detected, ocr_ok=ocr_ok)
+
+    if include_concerns:
+        warnings = warnings + detect_dietary_concerns(ingredients)
 
     return ScanResult(
         raw_text=raw_text,
@@ -47,7 +56,7 @@ def scan_text(raw_text: str, *, ocr_ok: bool = True) -> ScanResult:
     )
 
 
-def scan_label(image: Union[str, bytes]) -> ScanResult:
+def scan_label(image: Union[str, bytes], *, include_concerns: bool = False) -> ScanResult:
     """Run OCR on an image, then the full pipeline.
 
     On OCR failure the returned :class:`ScanResult` has an ``unknown`` risk and
@@ -61,4 +70,4 @@ def scan_label(image: Union[str, bytes]) -> ScanResult:
             risk_level="unknown",
             confidence="low",
         )
-    return scan_text(ocr.text, ocr_ok=True)
+    return scan_text(ocr.text, ocr_ok=True, include_concerns=include_concerns)

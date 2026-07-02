@@ -65,6 +65,11 @@ def parse_ingredients(raw_text: str) -> List[str]:
     if not section:
         return []
 
+    # Flatten parenthetical sub-ingredients into the list instead of dropping
+    # them: "chocolate (cocoa, milk fat)" -> "chocolate, cocoa, milk fat", so
+    # allergens hidden inside sub-ingredients (e.g. milk fat) aren't lost.
+    section = section.replace("(", ", ").replace(")", ", ").replace("[", ", ").replace("]", ", ")
+
     # Split on the usual separators between ingredients.
     parts = re.split(r"[,;•·\|]| and ", section)
 

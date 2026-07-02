@@ -1,0 +1,7 @@
+{
+  "_comment": "Non-allergen dietary triggers from the spec's target-user list. These are surfaced as informational warnings (not allergen detections), so they never inflate the allergen risk level.",
+  "concerns": {
+    "gerd_lpr": ["caffeine", "coffee", "citric acid", "tomato", "vinegar", "chocolate", "cocoa", "peppermint", "mint", "onion", "garlic", "black pepper", "chili", "hot sauce", "carbonated", "alcohol", "wine"],
+    "histamine": ["aged cheese", "fermented", "vinegar", "soy sauce", "cured", "smoked", "sauerkraut", "yeast extract", "tomato", "spinach", "avocado", "wine", "beer", "anchovy"]
+  }
+}

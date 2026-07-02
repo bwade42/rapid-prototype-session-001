@@ -5,6 +5,19 @@ raw text), extract the ingredients, detect common allergens, and return a clear
 risk report. This branch (`ocr-parser-engine`) owns the engine; the Python
 frontend lives on `ui-camera-results`.
 
+## Two engines, one contract
+
+The engine is scaffolded in **both** languages so either frontend can use it:
+
+* **Python** (this directory / `allergylens_engine/`) — primary, matches the
+  Python frontend.
+* **TypeScript / Next.js** (`web/`) — cross-compatible mirror in the spec's
+  recommended stack. See [web/README.md](web/README.md).
+
+Both produce the identical `ScanResult` JSON shape and share the same allergen
+data, so the frontends stay interchangeable. The rest of this doc covers the
+Python engine.
+
 ## What's here
 
 ```
